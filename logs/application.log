@@ -34,3 +34,15 @@
 2025-11-30 20:13:29 - [main] DEBUG o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver - ControllerAdvice beans: 0 @ExceptionHandler, 1 ResponseBodyAdvice
 2025-11-30 20:13:29 - [main] INFO  l.r.RestcompilerApplicationTests - Started RestcompilerApplicationTests in 1.008 seconds (process running for 1.725)
 2025-11-30 20:13:29 - [SpringApplicationShutdownHook] DEBUG o.s.w.c.s.GenericWebApplicationContext - Closing org.springframework.web.context.support.GenericWebApplicationContext@6df3e44c, started on Sun Nov 30 20:13:28 GMT 2025
+2025-11-30 20:22:31 - [main] INFO  l.r.RestcompilerApplicationTests - Starting RestcompilerApplicationTests using Java 25.0.1 with PID 41334 (started by Lyexs in /home/Lyexs/Documents/ProjetsWeb/restcompiler)
+2025-11-30 20:22:31 - [main] DEBUG l.r.RestcompilerApplicationTests - Running with Spring Boot v4.0.0, Spring v7.0.1
+2025-11-30 20:22:31 - [main] INFO  l.r.RestcompilerApplicationTests - No active profile set, falling back to 1 default profile: "default"
+2025-11-30 20:22:31 - [main] DEBUG o.s.w.c.s.GenericWebApplicationContext - Refreshing org.springframework.web.context.support.GenericWebApplicationContext@6df3e44c
+2025-11-30 20:22:31 - [main] INFO  o.s.b.w.a.WelcomePageHandlerMapping - Adding welcome page: class path resource [static/index.html]
+2025-11-30 20:22:31 - [main] DEBUG o.s.w.s.m.m.a.RequestMappingHandlerMapping - 4 mappings in 'requestMappingHandlerMapping'
+2025-11-30 20:22:31 - [main] DEBUG o.s.w.s.h.SimpleUrlHandlerMapping - Patterns [/webjars/**, /**] in 'resourceHandlerMapping'
+2025-11-30 20:22:31 - [main] DEBUG o.s.w.s.m.m.a.RequestMappingHandlerAdapter - ControllerAdvice beans: 0 @ModelAttribute, 0 @InitBinder, 1 RequestBodyAdvice, 1 ResponseBodyAdvice
+2025-11-30 20:22:31 - [main] WARN  o.s.b.t.a.ThymeleafAutoConfiguration$DefaultTemplateResolverConfiguration - Cannot find template location: classpath:/templates/ (please add some templates, check your Thymeleaf configuration, or set spring.thymeleaf.check-template-location=false)
+2025-11-30 20:22:31 - [main] DEBUG o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver - ControllerAdvice beans: 0 @ExceptionHandler, 1 ResponseBodyAdvice
+2025-11-30 20:22:31 - [main] INFO  l.r.RestcompilerApplicationTests - Started RestcompilerApplicationTests in 0.958 seconds (process running for 1.695)
+2025-11-30 20:22:32 - [SpringApplicationShutdownHook] DEBUG o.s.w.c.s.GenericWebApplicationContext - Closing org.springframework.web.context.support.GenericWebApplicationContext@6df3e44c, started on Sun Nov 30 20:22:31 GMT 2025
