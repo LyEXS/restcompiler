@@ -1,3 +1,0 @@
-# Containerfile
-FROM gcc:latest
-WORKDIR /sandbox

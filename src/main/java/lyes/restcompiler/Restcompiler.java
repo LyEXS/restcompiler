@@ -1,124 +1,180 @@
 package lyes.restcompiler;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.Random;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import lyes.restcompiler.Result;
+import java.io.*;
+import java.nio.file.*;
+import java.util.concurrent.*;
 
 public class Restcompiler {
 
-    private static final String SANDBOX_DIR = System.getProperty("user.home")
-            + "/Documents/ProjetsWeb/restcompiler/podman-sandbox/tmp";
-    private static final String IMAGE_NAME = "sandbox-c";
-
     public static CompilationResult runCommand(String code) {
-        String fileId = generateUniqueID();
         CompilationResult result = new CompilationResult();
-
-        // Crée le dossier sandbox s'il n'existe pas
-        File tmpDir = new File(SANDBOX_DIR);
-        if (!tmpDir.exists())
-            tmpDir.mkdirs();
-
-        // Création du fichier C
-        String filePath = SANDBOX_DIR + "/" + fileId + ".c";
-        if (!FileHandlers.createCFile(code, fileId, SANDBOX_DIR)) {
-            result.getCompilation().setStatus(false);
-            result.getCompilation().setOutput("Erreur lors de la création du fichier .c");
-            return result;
-        }
-
-        // 1️⃣ Compilation dans Podman
-        String compileCmd = String.format("gcc /sandbox/%s.c -o /sandbox/%s.out", fileId, fileId);
-        Result compilationResult = executeInPodman(compileCmd);
-        result.setCompilation(compilationResult);
-
-        if (!compilationResult.isStatus()) {
-            // Si compilation échoue, ne pas exécuter
-            result.getExecution().setStatus(false);
-            result.getExecution().setOutput("");
-            cleanup(filePath, SANDBOX_DIR + "/" + fileId + ".out");
-            return result;
-        }
-
-        // 2️⃣ Exécution dans Podman
-        String execCmd = String.format("timeout 3s /sandbox/%s.out", fileId);
-        Result executionResult = executeInPodman(execCmd);
-        result.setExecution(executionResult);
-
-        // Nettoyage
-        cleanup(filePath, SANDBOX_DIR + "/" + fileId + ".out");
-
-        return result;
-    }
-
-    private static Result executeInPodman(String command) {
-        Result result = new Result();
-        String[] cmd = {
-                "podman", "run", "--rm",
-                "-v", SANDBOX_DIR + ":/sandbox:Z",
-                IMAGE_NAME,
-                "bash", "-c", command
-        };
-
-        ProcessBuilder pb = new ProcessBuilder(cmd);
-        pb.redirectErrorStream(true);
-
-        StringBuilder output = new StringBuilder();
-        Process process = null;
+        Path tempDir = null;
+        Path sandboxDir = null;
 
         try {
-            process = pb.start();
+            tempDir = Files.createTempDirectory("c_run");
+            Path source = tempDir.resolve("test.c");
+            Path executable = tempDir.resolve("program");
 
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            Files.writeString(source, code);
+
+            Process compile = new ProcessBuilder(
+                "gcc",
+                source.toString(),
+                "-o",
+                executable.toString()
+            )
+                .redirectErrorStream(true)
+                .start();
+
+            if (!compile.waitFor(5, TimeUnit.SECONDS)) {
+                compile.destroyForcibly();
+                result.getCompilation().setStatus(false);
+                result.getCompilation().setOutput("Timeout compilation");
+                return result;
+            }
+
+            String compileOutput = readOutput(compile.getInputStream());
+            result.getCompilation().setStatus(compile.exitValue() == 0);
+            result.getCompilation().setOutput(compileOutput);
+
+            if (compile.exitValue() != 0) return result;
+
+            executable.toFile().setExecutable(true);
+
+            String sandboxName = "sandbox_" + System.currentTimeMillis();
+            sandboxDir = Paths.get("/tmp", sandboxName);
+            Files.createDirectories(sandboxDir);
+
+            Path sandboxBinary = sandboxDir.resolve("program");
+            Files.copy(
+                executable,
+                sandboxBinary,
+                StandardCopyOption.REPLACE_EXISTING
+            );
+            sandboxBinary.toFile().setExecutable(true);
+
+            Process exec = new ProcessBuilder(
+                "firejail",
+                "--quiet",
+                "--noprofile",
+                "--private=" + sandboxDir.toString(),
+                "--net=none",
+                "--seccomp.drop=fork,clone,vfork,execve,execveat", // Bloque spécifiquement
+                "--caps.drop=all",
+                "--rlimit-cpu=2",
+                "--rlimit-as=8m",
+                "./program"
+            )
+                .directory(sandboxDir.toFile())
+                .redirectErrorStream(true)
+                .start();
+
+            StringBuilder output = new StringBuilder();
+            try (
+                BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(exec.getInputStream())
+                )
+            ) {
                 String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line).append("\n");
+                while (
+                    (line = reader.readLine()) != null && output.length() < 4096
+                ) {
+                    if (
+                        !line.startsWith("Reading") &&
+                        !line.startsWith("firejail") &&
+                        !line.startsWith("Parent") &&
+                        !line.startsWith("Child") &&
+                        !line.startsWith("Base") &&
+                        !line.startsWith("Warning")
+                    ) {
+                        output.append(line).append("\n");
+                    }
                 }
             }
 
-            boolean finished = process.waitFor(5, TimeUnit.SECONDS); // <-- peut lancer InterruptedException
-            int exitCode;
-            if (!finished) {
-                process.destroyForcibly();
-                exitCode = 124;
-            } else {
-                exitCode = process.exitValue();
-            }
+            if (exec.waitFor(4, TimeUnit.SECONDS)) {
+                int exitCode = exec.exitValue();
 
-            if (exitCode == 124) {
-                result.setStatus(false);
-                result.setOutput("Timeout dépassé");
-                result.setIs_time_out(true);
+                if (exitCode == 0) {
+                    result.getExecution().setStatus(true);
+                    result.getExecution().setOutput(output.toString().trim());
+                } else if (exitCode == 124 || exitCode == 152) {
+                    result.getExecution().setStatus(false);
+                    result.getExecution().setIs_time_out(true);
+                    result
+                        .getExecution()
+                        .setOutput("Timeout CPU\n" + output.toString().trim());
+                } else if (exitCode == 137) {
+                    result.getExecution().setStatus(false);
+                    result
+                        .getExecution()
+                        .setOutput(
+                            "Timeout: Temps dépassé\n" +
+                                output.toString().trim() +
+                                "Code d'erreur : " +
+                                exitCode
+                        );
+                } else if (exitCode == 159) {
+                    result.getExecution().setStatus(false);
+                    result
+                        .getExecution()
+                        .setOutput(
+                            "Appel système bloqué\n" +
+                                output.toString().trim() +
+                                "Code d'erreur : " +
+                                exitCode
+                        );
+                } else {
+                    result.getExecution().setStatus(false);
+                    result
+                        .getExecution()
+                        .setOutput(
+                            "Erreur (code " +
+                                exitCode +
+                                ")\n" +
+                                output.toString().trim() +
+                                "Code d'erreur : " +
+                                exitCode
+                        );
+                }
             } else {
-                result.setStatus(exitCode == 0);
-                result.setOutput(output.toString());
+                exec.destroyForcibly();
+                result.getExecution().setStatus(false);
+                result.getExecution().setIs_time_out(true);
+                result.getExecution().setOutput("Timeout global");
             }
-
-        } catch (IOException | InterruptedException e) {
-            result.setStatus(false);
-            result.setOutput("Erreur: " + e.getMessage());
+        } catch (Exception e) {
+            result.getCompilation().setStatus(false);
+            result.getCompilation().setOutput("Erreur: " + e.getMessage());
+        } finally {
+            cleanup(tempDir);
+            cleanup(sandboxDir);
         }
 
         return result;
     }
 
-    private static void cleanup(String... paths) {
-        for (String path : paths) {
-            FileHandlers.removeFile(path);
+    private static String readOutput(InputStream is) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        try (
+            BufferedReader br = new BufferedReader(new InputStreamReader(is))
+        ) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                sb.append(line).append("\n");
+            }
         }
+        return sb.toString().trim();
     }
 
-    private static String generateUniqueID() {
-        String unique = UUID.randomUUID().toString();
-        String fileId = unique.substring(7);
-        Random r = new Random();
-        char c = (char) (r.nextInt(26) + 'a');
-        fileId = c + fileId.substring(1);
-        return fileId;
+    private static void cleanup(Path dir) {
+        if (dir == null || !Files.exists(dir)) return;
+        try {
+            Files.walk(dir)
+                .sorted((a, b) -> -a.compareTo(b))
+                .map(Path::toFile)
+                .forEach(File::delete);
+        } catch (IOException ignored) {}
     }
 }
