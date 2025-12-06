@@ -1,20 +1,36 @@
 package lyes.restcompiler;
 
 import java.util.Map;
+import lyes.restcompiler.BodyHandler.RequestHandler;
+import lyes.restcompiler.Exceptions.JsonParsingException;
+import lyes.restcompiler.Models.Request;
+import lyes.restcompiler.TemplateRendrer.CodeTemplate;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class Controller {
 
+    @PostMapping("/test")
+    public String test(@RequestBody Request payload) {
+        try {
+            return CodeTemplate.render(payload);
+        } catch (JsonParsingException e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
     // requete post qui va retourner le résultat de la compilation du code
     @PostMapping("/compile")
     public ResponseEntity<CompilationResult> compile(
-        @RequestBody Map<String, String> payload
+        @RequestBody Request request
     ) {
-        String code = payload.get("code");
+        String code = CodeTemplate.render(request);
+
         // Validation validation = CodeValidator.validateWithDetails(code);
         // if (!validation.isValid()) {
         //     CompilationResult errorResult = new CompilationResult();

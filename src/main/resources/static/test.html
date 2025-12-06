@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="fr">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Tester les Test Cases</title>
+        <style>
+            body {
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                background: #f4f4f9;
+                padding: 20px;
+            }
+            .container {
+                max-width: 900px;
+                margin: 0 auto;
+            }
+            h1 {
+                text-align: center;
+                margin-bottom: 20px;
+            }
+            textarea {
+                width: 100%;
+                height: 300px;
+                padding: 10px;
+                font-family: monospace;
+                font-size: 14px;
+                border-radius: 8px;
+                border: 1px solid #ccc;
+                resize: vertical;
+            }
+            button {
+                margin-top: 15px;
+                padding: 12px 20px;
+                font-size: 16px;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                background-color: #667eea;
+                color: white;
+            }
+            button:hover {
+                background-color: #5a67d8;
+            }
+            .result {
+                margin-top: 20px;
+                padding: 15px;
+                border-radius: 8px;
+                background: #fff;
+                border: 1px solid #ccc;
+                white-space: pre-wrap;
+                font-family: monospace;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🧪 Testez vos Test Cases</h1>
+
+            <textarea id="jsonInput" placeholder="Entrez le JSON ici...">
+{
+    "function": {
+        "code": "int add(int a, int b) { return a + b; }",
+        "signature": "int add(int,int)",
+        "return_type": "int"
+    },
+    "test_cases": [
+        { "args": [{"value": "2"}, {"value": "3"}], "expected": "5" },
+        { "args": [{"value": "10"}, {"value": "15"}], "expected": "25" }
+    ]
+}
+        </textarea
+            >
+
+            <button onclick="sendTest()">Envoyer et tester</button>
+
+            <div class="result" id="resultOutput">Résultat ici...</div>
+        </div>
+
+        <script>
+            async function sendTest() {
+                const jsonText = document.getElementById("jsonInput").value;
+                const outputDiv = document.getElementById("resultOutput");
+                outputDiv.textContent = "Envoi en cours...";
+
+                try {
+                    const response = await fetch("/test", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: jsonText,
+                    });
+
+                    if (!response.ok) {
+                        outputDiv.textContent = `Erreur HTTP ${response.status}`;
+                        return;
+                    }
+
+                    const result = await response.text();
+                    outputDiv.textContent = JSON.stringify(result, null, 4);
+                } catch (err) {
+                    outputDiv.textContent = "Erreur: " + err.message;
+                }
+            }
+        </script>
+    </body>
+</html>

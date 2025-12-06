@@ -332,43 +332,49 @@ int main() {
                     </div>
                 </div>
             </div>
+            <button
+                class="btn btn-primary"
+                onclick="window.location.href = 'test.html'"
+            >
+                🧪 Aller à la vue Test
+            </button>
         </div>
 
         <script>
             const examples = {
                 hello: `#include <stdio.h>
 
-            int main() {
-                printf("Hello, World!\\n");
-                return 0;
-            }`,
+int main() {
+    printf("Hello, World!\\n");
+    return 0;
+}`,
                 calcul: `#include <stdio.h>
 
-            int main() {
-                int a = 5, b = 3;
-                printf("Addition : %d + %d = %d\\n", a, b, a + b);
-                printf("Multiplication : %d * %d = %d\\n", a, b, a * b);
-                return 0;
-            }`,
+int main() {
+    int a = 5, b = 3;
+    printf("Addition : %d + %d = %d\\n", a, b, a + b);
+    printf("Multiplication : %d * %d = %d\\n", a, b, a * b);
+    return 0;
+}`,
                 boucle: `#include <stdio.h>
 
-            int main() {
-                for(int i = 1; i <= 5; i++) {
-                    printf("Iteration %d\\n", i);
-                }
-                return 0;
-            }`,
+int main() {
+    for(int i = 1; i <= 5; i++) {
+        printf("Iteration %d\\n", i);
+    }
+    return 0;
+}`,
                 fonction: `#include <stdio.h>
 
-            int addition(int a, int b) {
-                return a + b;
-            }
+int addition(int a, int b) {
+    return a + b;
+}
 
-            int main() {
-                int resultat = addition(10, 20);
-                printf("Resultat : %d\\n", resultat);
-                return 0;
-            }`,
+int main() {
+    int resultat = addition(10, 20);
+    printf("Resultat : %d\\n", resultat);
+    return 0;
+}`,
             };
 
             function loadExample(name) {
@@ -400,19 +406,25 @@ int main() {
                 clearResults();
 
                 try {
+                    // Version simple : envoyer juste le code
                     const response = await fetch("/compile", {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
                         },
-                        body: JSON.stringify({ code: code }),
+                        // Envoyer le code simple
+                        body: document
+                            .getElementById("codeEditor")
+                            .value.trim(),
                     });
 
                     if (!response.ok) {
                         if (response.status === 400) {
                             showError(
-                                "Le code que vous avez préseté est considéré comme dangereux",
+                                "Le code que vous avez fourni est considéré comme dangereux",
                             );
+                        } else if (response.status === 500) {
+                            showError("Erreur serveur lors de la compilation");
                         } else {
                             throw new Error(`Erreur HTTP: ${response.status}`);
                         }
@@ -482,13 +494,26 @@ int main() {
             function shareCode() {
                 const code = document.getElementById("codeEditor").value;
                 const encoded = encodeURIComponent(code);
-                const url = `${window.location.origin}/compile?code=${encoded}`;
+                const url = `${window.location.origin}${window.location.pathname}?code=${encoded}`;
 
                 navigator.clipboard
                     .writeText(url)
                     .then(() => alert("Lien copié dans le presse-papier !"))
                     .catch(() => alert("Impossible de copier le lien"));
             }
+
+            // Charger le code depuis l'URL si présent
+            function loadCodeFromURL() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const codeParam = urlParams.get("code");
+                if (codeParam) {
+                    document.getElementById("codeEditor").value =
+                        decodeURIComponent(codeParam);
+                }
+            }
+
+            // Appeler au chargement de la page
+            window.addEventListener("DOMContentLoaded", loadCodeFromURL);
 
             // Ctrl+Enter pour compiler
             document

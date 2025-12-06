@@ -12,6 +12,7 @@ public class Restcompiler {
         Path sandboxDir = null;
 
         try {
+            // créer le .C et et le .o
             tempDir = Files.createTempDirectory("c_run");
             Path source = tempDir.resolve("test.c");
             Path executable = tempDir.resolve("program");
@@ -60,10 +61,11 @@ public class Restcompiler {
                 "--noprofile",
                 "--private=" + sandboxDir.toString(),
                 "--net=none",
-                "--seccomp.drop=fork,clone,vfork,execve,execveat", // Bloque spécifiquement
+                "--seccomp.drop=fork,clone,vfork,execve,execveat", // ça c'est pour bloquer les appels système dangereux
+                // Meme si il c'est exécuté dans un env sicurisé
                 "--caps.drop=all",
-                "--rlimit-cpu=2",
-                "--rlimit-as=8m",
+                "--rlimit-cpu=2", // limiter le temps a deux unités CPU
+                "--rlimit-as=8m", // Limiter la mémoire a 8MB
                 "./program"
             )
                 .directory(sandboxDir.toFile())
@@ -77,6 +79,7 @@ public class Restcompiler {
                 )
             ) {
                 String line;
+                // ignorer les message logs de firejail
                 while (
                     (line = reader.readLine()) != null && output.length() < 4096
                 ) {
@@ -95,10 +98,12 @@ public class Restcompiler {
 
             if (exec.waitFor(4, TimeUnit.SECONDS)) {
                 int exitCode = exec.exitValue();
-
+                // gérer les codes retour de FireJail (TImeout, mémorie dépassée etcc)
                 if (exitCode == 0) {
                     result.getExecution().setStatus(true);
-                    result.getExecution().setOutput(output.toString().trim());
+                    result
+                        .getExecution()
+                        .setOutput("Tout les tests sont passées ");
                 } else if (exitCode == 124 || exitCode == 152) {
                     result.getExecution().setStatus(false);
                     result.getExecution().setIs_time_out(true);
@@ -130,12 +135,9 @@ public class Restcompiler {
                     result
                         .getExecution()
                         .setOutput(
-                            "Erreur (code " +
-                                exitCode +
-                                ")\n" +
-                                output.toString().trim() +
-                                "Code d'erreur : " +
-                                exitCode
+                            exitCode +
+                                " Tests ne sont pas passées : \n" +
+                                output.toString().trim()
                         );
                 }
             } else {
