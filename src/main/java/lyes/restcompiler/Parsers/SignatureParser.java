@@ -6,6 +6,7 @@ import java.util.regex.Pattern;
 import lyes.restcompiler.Exceptions.SignatureParsingException;
 import lyes.restcompiler.Models.Signature;
 
+// ça c'est une classe dont je pense je n'en aurai pas besoin pour l'instant
 public class SignatureParser {
 
     public static Signature parseSignature(String data) {

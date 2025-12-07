@@ -2,6 +2,7 @@ package lyes.restcompiler.Models;
 
 import java.util.List;
 
+// ça c'est la classe TestCase qui représente un cas de test
 public class TestCase {
 
     private List<String> args;

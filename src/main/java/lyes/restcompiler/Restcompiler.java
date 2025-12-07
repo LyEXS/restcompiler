@@ -4,8 +4,13 @@ import java.io.*;
 import java.nio.file.*;
 import java.util.concurrent.*;
 
+// c'est ici que se passe toute la logique d'environnement
 public class Restcompiler {
 
+    // cette fonction créer un dossier temporaire puis met dedans un fichier source C et un .exe
+    // lance la commande fireJail : voir la documentation ici https://man7.org/linux/man-pages/man1/firejail.1.html
+    // avec des params,
+    // puis elle renvois un résultat dépendant du code retour de notre programme
     public static CompilationResult runCommand(String code) {
         CompilationResult result = new CompilationResult();
         Path tempDir = null;
@@ -17,8 +22,12 @@ public class Restcompiler {
             Path source = tempDir.resolve("test.c");
             Path executable = tempDir.resolve("program");
 
+            // la on écrit le code dans le fichier source
             Files.writeString(source, code);
-
+            // ici on créer le processus qui éxecute la commande gcc,
+            // à noter que la compilation s'éffectue dans l'environnement serveur car elle ne présente pas de problème de sécurité
+            // il est probable qu'elle pose problème si plusieurs utilisateurs tentent de compiler en même temps
+            // mais on gérera ça plus tard
             Process compile = new ProcessBuilder(
                 "gcc",
                 source.toString(),
@@ -28,25 +37,29 @@ public class Restcompiler {
                 .redirectErrorStream(true)
                 .start();
 
+            // bien sur ici on a un temps limite pour compilation, mais bon, c'est pas très nécessaire
             if (!compile.waitFor(5, TimeUnit.SECONDS)) {
                 compile.destroyForcibly();
                 result.getCompilation().setStatus(false);
                 result.getCompilation().setOutput("Timeout compilation");
                 return result;
             }
-
+            // ici on lit le stdout du process de compilation
             String compileOutput = readOutput(compile.getInputStream());
+
             result.getCompilation().setStatus(compile.exitValue() == 0);
             result.getCompilation().setOutput(compileOutput);
 
             if (compile.exitValue() != 0) return result;
 
+            // ici si la compilation s'est bien passée, alors on rend l'exécutable exécutable
             executable.toFile().setExecutable(true);
 
+            // on crée le dossier sandbox dans tmp
             String sandboxName = "sandbox_" + System.currentTimeMillis();
             sandboxDir = Paths.get("/tmp", sandboxName);
             Files.createDirectories(sandboxDir);
-
+            // on met l'exe dedans
             Path sandboxBinary = sandboxDir.resolve("program");
             Files.copy(
                 executable,
@@ -55,18 +68,19 @@ public class Restcompiler {
             );
             sandboxBinary.toFile().setExecutable(true);
 
+            // ici on lance le programme dans le sandbox
             Process exec = new ProcessBuilder(
                 "firejail",
-                "--quiet",
+                "--quiet", // ça c'est éviter les logs indésirables
                 "--noprofile",
-                "--private=" + sandboxDir.toString(),
+                "--private=" + sandboxDir.toString(), // ça c'est pour limiter l'accès au autres dossiers
                 "--net=none",
                 "--seccomp.drop=fork,clone,vfork,execve,execveat", // ça c'est pour bloquer les appels système dangereux
-                // Meme si il c'est exécuté dans un env sicurisé
+                // Meme si il c'est exécuté dans un env securisé
                 "--caps.drop=all",
                 "--rlimit-cpu=2", // limiter le temps a deux unités CPU
                 "--rlimit-as=8m", // Limiter la mémoire a 8MB
-                "./program"
+                "./program" // le programme a executer
             )
                 .directory(sandboxDir.toFile())
                 .redirectErrorStream(true)
@@ -99,6 +113,11 @@ public class Restcompiler {
             if (exec.waitFor(4, TimeUnit.SECONDS)) {
                 int exitCode = exec.exitValue();
                 // gérer les codes retour de FireJail (TImeout, mémorie dépassée etcc)
+                // la c'est un peu complexe ou j'ai l'impression que c'est pas détérministe,
+                // je trouve que les codes retour sont pas toujours les memes selon l'environnement d'exec
+                // par exemple quand je le lance sur google cloud j'ai des codes retour différents
+                // donc il se peut que ça soit, pour l'instant, pas représentatif du type de retour,
+                // mais on verra ça plus tard
                 if (exitCode == 0) {
                     result.getExecution().setStatus(true);
                     result

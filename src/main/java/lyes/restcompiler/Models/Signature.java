@@ -2,15 +2,12 @@ package lyes.restcompiler.Models;
 
 import java.util.List;
 
+// ça c'est la classe qui représente une signature de fonction
 public class Signature {
 
     private String returnType;
     private String functionName;
     private List<String> parameters;
-
-    // -------------------------
-    // Constructors
-    // -------------------------
 
     public Signature() {}
 
@@ -23,10 +20,6 @@ public class Signature {
         this.functionName = functionName;
         this.parameters = parameters;
     }
-
-    // -------------------------
-    // Getters & Setters
-    // -------------------------
 
     public String getReturnType() {
         return returnType;
@@ -51,10 +44,6 @@ public class Signature {
     public void setParameters(List<String> parameters) {
         this.parameters = parameters;
     }
-
-    // -------------------------
-    // toString()
-    // -------------------------
 
     @Override
     public String toString() {

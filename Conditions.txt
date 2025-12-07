@@ -1,0 +1,24 @@
+les params ne peuvent pas etre nulls,
+
+les backslaches pour les chaines de char,
+
+les chaines de char doivent etre entourées de guillemets,
+
+une fonction doit toujours retourner une valeur, vois n'est pas permis
+
+les fonctions qui doivent retourner un tableau doivent avoir comme dernier param un pointeur qui ver la taille du tableau de sortie
+
+
+ne pas utiliser de const dans les parametres de fonctions
+
+attention : remplacer chaque \0 par \\0 car \0 a une segnification spécial dans JSON et donc il faut l'échapper pour qu'il soit pris en compte dans la chaine de caractères
+
+
+les types autorisées sont itn float double long char int* double* long* char* char**
+
+
+
+      "args": ["{1, 2, 3, 4, 5, 0}", "6", "0"],
+      "expected": "{true, true, false, true, false, true}"
+    },
+    {
