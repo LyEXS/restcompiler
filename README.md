@@ -79,3 +79,102 @@ Les tableaux doivent être représentés par une **chaîne de caractères** resp
   * **Argument 1 (`int*`) :** `"{1, 2, 3, 4, 5, 0}"` (Tableau d'entiers)
   * **Argument 3 (`int*` de sortie) :** `"0"` (Initialisation)
   * **Résultat Attendu (`bool*`) :** `"{false, true, false, true, false, true}"` (Tableau de booléens)
+
+## 5\. 🔢 Exemple : Opération Scalaire Simple (Retour `int`)
+
+Cet exemple teste une fonction classique qui prend un tableau et retourne une valeur unique.
+
+**Fonction C :** `int array_sum(int* arr, int size)`
+
+```json
+{
+  "signature": {
+    "returnType": "int",
+    "functionName": "array_sum",
+    "parameters": ["int*", "int", "int"]
+  },
+  "code": "int array_sum(int* arr, int size, int bonus) { int sum = 0; if (arr != NULL && size > 0) { for (int i = 0; i < size; i++) { sum += arr[i]; } } return sum + bonus; }",
+  "returnType": "int",
+  "testCases": [
+    {
+      "args": ["{10, 20, 5}", "3", "5"],
+      "expected": "40"
+    },
+    {
+      "args": ["NULL", "0", "100"],
+      "expected": "100"
+    }
+  ],
+  "is_in_place": false
+}
+```
+
+-----
+
+## 2\. ✏️ Exemple : Modification sur Place (Inplace, `char*`)
+
+Cet exemple est crucial pour montrer l'utilisation de **`"is_in_place": true`**. Il teste une fonction qui modifie son argument directement sans allouer de nouvelle mémoire.
+
+**Fonction C :** `char* reverse_string(char* s)`
+
+```json
+{
+  "signature": {
+    "returnType": "char*",
+    "functionName": "reverse_string",
+    "parameters": ["char*"]
+  },
+  "code": "char* reverse_string(char* s) { if (s == NULL) return NULL; size_t len = strlen(s); if (len <= 1) return s; char *start = s; char *end = s + len - 1; char temp; while (start < end) { temp = *start; *start = *end; *end = temp; start++; end--; } return s; }",
+  "returnType": "char*",
+  "testCases": [
+    {
+      "args": ["\"hello\""],
+      "expected": "\"olleh\""
+    },
+    {
+      "args": ["NULL"],
+      "expected": "NULL"
+    },
+    {
+      "args": ["\"madam\""],
+      "expected": "\"madam\""
+    }
+  ],
+  "is_in_place": true
+}
+```
+
+-----
+
+## 3\. 🛡️ Exemple : Retour d'un Tableau Alloué et Booléen (`bool*`)
+
+Cet exemple montre comment gérer les types de retour complexes (tableaux), la gestion du **pointeur de taille de sortie** (`int*`), et la sérialisation des booléens (`true`/`false`).
+
+**Fonction C :** `bool* check_parity(int* arr, int size, int* new_size)`
+
+```json
+{
+  "signature": {
+    "returnType": "bool*",
+    "functionName": "check_parity",
+    "parameters": ["int*", "int", "int*"]
+  },
+  "code": "bool* check_parity(int* arr, int size, int* new_size) { if (arr == NULL || size <= 0 || new_size == NULL) { if (new_size) *new_size = 0; return NULL; } *new_size = size; bool* result = (bool*)malloc(size * sizeof(bool)); if (result == NULL) { *new_size = 0; return NULL; } for (int i = 0; i < size; i++) { result[i] = (arr[i] % 2 == 0); } return result; }",
+  "returnType": "bool*",
+  "testCases": [
+    {
+      "args": ["{1, 2, 3, 4, 5, 0}", "6", "0"],
+      "expected": "{false, true, false, true, false, true}"
+    },
+    {
+      "args": ["{10, 11, -2, -3}", "4", "0"],
+      "expected": "{true, false, true, false}"
+    },
+    {
+      "args": ["{}", "0", "0"],
+      "expected": "{}"
+    }
+  ],
+  "is_in_place": false
+}
+```
