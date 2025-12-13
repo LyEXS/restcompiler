@@ -28,15 +28,21 @@ public class Restcompiler {
             // à noter que la compilation s'éffectue dans l'environnement serveur car elle ne présente pas de problème de sécurité
             // il est probable qu'elle pose problème si plusieurs utilisateurs tentent de compiler en même temps
             // mais on gérera ça plus tard
+            // le wrapping permet de remplacer les fonctions malloc, calloc, free et realloc par des fonctions personnalisées qui gérerons les allocations mémoires
             Process compile = new ProcessBuilder(
                 "gcc",
                 source.toString(),
                 "-o",
-                executable.toString()
+                executable.toString(),
+                "-Wl,--wrap,malloc",
+                "-Wl,--wrap,calloc",
+                "-Wl,--wrap,free",
+                "-Wl,--wrap,realloc"
             )
                 .redirectErrorStream(true)
                 .start();
 
+            // Note : Pensez à gérer le waitFor et l'analyse du code de sortie de la compilation ici.
             // bien sur ici on a un temps limite pour compilation, mais bon, c'est pas très nécessaire
             if (!compile.waitFor(5, TimeUnit.SECONDS)) {
                 compile.destroyForcibly();
@@ -75,11 +81,14 @@ public class Restcompiler {
                 "--noprofile",
                 "--private=" + sandboxDir.toString(), // ça c'est pour limiter l'accès au autres dossiers
                 "--net=none",
+                "--noroot", // ne pas donner accès au commandes sudo
                 "--seccomp.drop=fork,clone,vfork,execve,execveat", // ça c'est pour bloquer les appels système dangereux
                 // Meme si il c'est exécuté dans un env securisé
                 "--caps.drop=all",
-                "--rlimit-cpu=2", // limiter le temps a deux unités CPU
-                "--rlimit-as=8m", // Limiter la mémoire a 8MB
+                "--rlimit-cpu=2",
+                "--deterministic-exit-code",
+                "--deterministic-shutdown",
+                "--rlimit-as=5m", // Limiter la mémoire a 0.5MB
                 "./program" // le programme a executer
             )
                 .directory(sandboxDir.toFile())
@@ -118,44 +127,67 @@ public class Restcompiler {
                 // par exemple quand je le lance sur google cloud j'ai des codes retour différents
                 // donc il se peut que ça soit, pour l'instant, pas représentatif du type de retour,
                 // mais on verra ça plus tard
-                if (exitCode == 0) {
-                    result.getExecution().setStatus(true);
+
+                // Codes pour l'arrêt forcé par un signal (Mémoire, Accès Illégal)
+                if (exitCode == 134 || exitCode == 137 || exitCode == 139) {
+                    result.getExecution().setStatus(false);
                     result
                         .getExecution()
-                        .setOutput("Tout les tests sont passées ");
-                } else if (exitCode == 124 || exitCode == 152) {
+                        .setOutput(
+                            "Échec: Limite de Mémoire/Ressources Dépassée (Code " +
+                                exitCode +
+                                ")" +
+                                (exitCode == 137
+                                    ? " (SIGKILL/rlimit-as)"
+                                    : (exitCode == 139 ? " (SIGSEGV)" : "")) +
+                                "\n" +
+                                output.toString().trim()
+                        );
+                }
+                // Codes pour le Timeout CPU (rlimit-cpu)
+                else if (exitCode == 124 || exitCode == 152) {
                     result.getExecution().setStatus(false);
                     result.getExecution().setIs_time_out(true);
                     result
                         .getExecution()
-                        .setOutput("Timeout CPU\n" + output.toString().trim());
-                } else if (exitCode == 137) {
-                    result.getExecution().setStatus(false);
-                    result
-                        .getExecution()
                         .setOutput(
-                            "Timeout: Temps dépassé\n" +
-                                output.toString().trim() +
-                                "Code d'erreur : " +
-                                exitCode
+                            "Timeout CPU\nCode d'erreur : " +
+                                exitCode +
+                                "\n" +
+                                output.toString().trim()
                         );
-                } else if (exitCode == 159) {
+                }
+                // Code pour le Blocage d'Appel Système (Seccomp)
+                else if (exitCode == 159) {
                     result.getExecution().setStatus(false);
                     result
                         .getExecution()
                         .setOutput(
-                            "Appel système bloqué\n" +
-                                output.toString().trim() +
-                                "Code d'erreur : " +
-                                exitCode
+                            "Appel système bloqué par la politique de sécurité (Seccomp/Code " +
+                                exitCode +
+                                ")\n" +
+                                output.toString().trim()
                         );
-                } else {
+                }
+                // Code de Succès
+                else if (exitCode == 0) {
+                    result.getExecution().setStatus(true);
+                    result
+                        .getExecution()
+                        .setOutput(
+                            "Tout les tests sont passées \n" +
+                                output.toString().trim()
+                        );
+                }
+                // Gestion des autres codes d'erreur (Erreur de test, Erreur de l'utilisateur)
+                else {
                     result.getExecution().setStatus(false);
                     result
                         .getExecution()
                         .setOutput(
-                            exitCode +
-                                " Tests ne sont pas passées : \n" +
+                            "Erreur du Programme Utilisateur - Code: " +
+                                exitCode +
+                                "\n" +
                                 output.toString().trim()
                         );
                 }
@@ -163,7 +195,11 @@ public class Restcompiler {
                 exec.destroyForcibly();
                 result.getExecution().setStatus(false);
                 result.getExecution().setIs_time_out(true);
-                result.getExecution().setOutput("Timeout global");
+                result
+                    .getExecution()
+                    .setOutput(
+                        "Timeout global (Non terminé dans les 4 secondes)"
+                    );
             }
         } catch (Exception e) {
             result.getCompilation().setStatus(false);

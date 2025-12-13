@@ -7,6 +7,8 @@ import lyes.restcompiler.Models.TestCase;
 
 public class TestCasesGenerator {
 
+    private static final int MALLOC_FAILURE_EXIT_CODE = 101;
+
     public static StringBuilder generateTestCases(
         StringBuilder sb,
         List<String> types,
@@ -170,6 +172,14 @@ public class TestCasesGenerator {
                             .append("(result, ")
                             .append(sizeVarName)
                             .append(");\n")
+                            .append("if (result_tmp == NULL) {\n")
+                            .append(
+                                "fprintf(stderr, \"Erreur: Échec d'allocation lors de la sérialisation (Runner MLE).\\n\");\n"
+                            )
+                            .append(
+                                "return " + MALLOC_FAILURE_EXIT_CODE + ";\n"
+                            ) // Arrêt immédiat du main()
+                            .append("}\n")
                             // 2. Copier le résultat sérialisé et nettoyer result_tmp
                             .append("strcpy(resultStr,result_tmp);\n")
                             .append("free(result_tmp);\n");
